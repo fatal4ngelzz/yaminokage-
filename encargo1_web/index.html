@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闇の影</title>
+    <link rel="icon" href="imagenes/favicon.png" type="image/x-icon">
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: black;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            position: relative;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+
+        .image-container {
+            position: relative;
+            width: 80vw;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background-color: black;
+        }
+
+        #interactive-image {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: cover;
+        }
+
+        #doors-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            background: radial-gradient(circle, rgba(0, 0, 0, 0.9), rgba(0, 0, 0, 0.7));
+            overflow: hidden;
+            background-color: black;
+            display: none;
+        }
+
+        #doors-container img {
+            width: 23%;
+            height: auto;
+            object-fit: contain;
+            filter: brightness(50%) contrast(120%);
+        }
+
+        #text-overlay {
+            position: absolute;
+            bottom: 20px;
+            width: 90%;
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            font-family: 'Courier New', monospace;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            transition: opacity 1s ease;
+            z-index: 5;
+        }
+
+        .text-part {
+            display: block;
+            margin: 0;
+            opacity: 0;
+            transition: opacity 1s ease;
+            font-size: 1.2em;
+        }
+
+        #attack {
+            position: absolute;
+            width: 50vw;
+            height: auto;
+            opacity: 0;
+            z-index: 10;
+            pointer-events: none;
+            transition: transform 0.3s ease, opacity 0.5s ease;
+            top: 50%;
+            left: -50%;
+            transform: translate(-50%, -50%);
+            background-image: url('imagenes/ataque1.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        #scratch {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background-image: url('imagenes/rasguño1.png');
+            background-size: cover;
+            background-repeat: no-repeat;
+            opacity: 0;
+            z-index: 15;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        #vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+            background: radial-gradient(circle, transparent, transparent 60%, rgba(255, 0, 0, 0.8));
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        #door-video {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 20;
+            width: 80%;
+            height: 80%;
+        }
+    </style>
+</head>
+<body>
+    <div class="image-container">
+        <img id="interactive-image" src="imagenes/puertacerradafoto.png" alt="Imagen Interactiva">
+        <div id="vignette" class="vignette"></div>
+        <div id="attack" class="attack"></div>
+        <div id="scratch" class="scratch"></div>
+        <div id="text-overlay" class="text-overlay">
+            <span id="first-text" class="text-part">...</span><br>
+            <span id="second-text" class="text-part"></span>
+        </div>
+    </div>
+    <div id="doors-container">
+        <img src="imagenes/p1.png" alt="Puerta 1" data-door="1">
+        <img src="imagenes/p2.png" alt="Puerta 2" data-door="2">
+        <img src="imagenes/p3.png" alt="Puerta 3" data-door="3">
+        <img src="imagenes/p4.png" alt="Puerta 4" data-door="4">
+    </div>
+    <audio id="click-sound" src="sonidos/puertaabierta.mp3"></audio>
+    <audio id="ghost-sound" src="sonidos/fantasma1.mp3"></audio>
+    <audio id="attack-sound" src="sonidos/fantasmaataque1.mp3"></audio>
+    <audio id="final-attack-sound" src="sonidos/ataquesonido.mp3"></audio>
+    <audio id="doors-sound" src="sonidos/puertasreal.mp3"></audio>
+    <video id="door-video" controls>
+        <source src="videos/videopuerta1.mp4" type="video/mp4">
+        Tu navegador no soporta el elemento de video.
+    </video>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const image = document.getElementById('interactive-image');
+            const clickSound = document.getElementById('click-sound');
+            const ghostSound = document.getElementById('ghost-sound');
+            const attackSound = document.getElementById('attack-sound');
+            const finalAttackSound = document.getElementById('final-attack-sound');
+            const doorsSound = document.getElementById('doors-sound');
+            const firstText = document.getElementById('first-text');
+            const secondText = document.getElementById('second-text');
+            const textOverlay = document.getElementById('text-overlay');
+            const attack = document.getElementById('attack');
+            const vignette = document.getElementById('vignette');
+            const scratch = document.getElementById('scratch');
+            const doorsContainer = document.getElementById('doors-container');
+            const doorVideo = document.getElementById('door-video');
+
+            let step = 0;
+            let canClick = true;
+            let vignetteShown = false;
+
+            function typeText(element, text, speed, callback) {
+                let index = 0;
+                element.textContent = ''; // Clear text before typing
+                element.style.opacity = 1; // Ensure text is visible
+                const interval = setInterval(() => {
+                    if (index < text.length) {
+                        element.textContent += text[index++];
+                    } else {
+                        clearInterval(interval);
+                        if (callback) callback();
+                    }
+                }, speed);
+            }
+
+            function handleClick(event) {
+                if (!canClick) return;
+
+                const target = event.target;
+
+                if (target.tagName === 'IMG') {
+                    const doorNumber = target.getAttribute('data-door');
+
+                    switch (step) {
+                        case 0:
+                            canClick = false;
+                            clickSound.play().catch(error => console.error('Error al reproducir el sonido:', error));
+                            setTimeout(() => {
+                                image.src = 'imagenes/puertabiertafoto.png';
+                                setTimeout(() => {
+                                    canClick = true;
+                                    step = 1;
+                                }, 500);
+                            }, 0);
+                            break;
+                        case 1:
+                            canClick = false;
+                            image.src = 'imagenes/fantasmapuerta1.png';
+                            ghostSound.play().catch(error => console.error('Error al reproducir el sonido del fantasma:', error));
+                            textOverlay.style.opacity = 1;
+
+                            typeText(firstText, '...', 30, () => { // Aceleración del texto '...'
+                                setTimeout(() => {
+                                    firstText.style.opacity = 0;
+                                    setTimeout(() => {
+                                        firstText.textContent = '';
+                                        typeText(secondText, 'No escaparás de mí. Tu sufrimiento será eterno, y tu alma se perderá en nuestra condena.', 50, () => {
+                                            finalAttackSound.play().catch(error => console.error('Error al reproducir el sonido final:', error));
+                                            textOverlay.style.opacity = 0;
+                                            if (!vignetteShown) {
+                                                vignette.style.opacity = 1;
+                                                vignetteShown = true;
+                                            }
+                                            scratch.style.opacity = 0.5;
+                                            setTimeout(() => {
+                                                scratch.style.opacity = 0;
+                                                vignette.style.opacity = 0;
+                                                setTimeout(() => {
+                                                    image.src = 'imagenes/habitacion1.png'; // Mostrar imagen habitacion1.png
+                                                    setTimeout(() => {
+                                                        image.style.display = 'none'; // Ocultar la imagen
+                                                        doorsContainer.style.display = 'flex'; // Mostrar las puertas
+                                                        doorsSound.play().catch(error => console.error('Error al reproducir el sonido de las puertas:', error));
+                                                        ghostSound.pause(); // Detener el sonido del fantasma
+                                                        ghostSound.currentTime = 0; // Reiniciar el sonido del fantasma
+                                                        canClick = true;
+                                                        step = 2;
+                                                    }, 2000); // Esperar 2 segundos antes de mostrar las puertas
+                                                }, 500); // Tiempo para mostrar la imagen
+                                            }, 500); // Tiempo antes de mostrar la imagen
+                                        });
+                                    }, 500); // Tiempo para ocultar el primer texto
+                                }, 500); // Tiempo para mostrar el segundo texto
+                            });
+                            break;
+                        case 2:
+                            canClick = false;
+                            doorsSound.pause(); // Detener el sonido de las puertas
+                            doorsSound.currentTime = 0; // Reiniciar el sonido de las puertas
+
+                            if (doorNumber === '1') { // Solo para la primera puerta
+                                doorVideo.style.display = 'block';
+                                doorVideo.play().catch(error => console.error('Error al reproducir el video:', error));
+                                doorVideo.onended = () => {
+                                    doorVideo.style.display = 'none';
+                                    canClick = true;
+                                    step = 3;
+                                };
+                            } else {
+                                attack.style.opacity = 1;
+                                attack.style.transform = 'translate(50%, -50%)'; // Mostrar ataque
+                                attackSound.play().catch(error => console.error('Error al reproducir el sonido del ataque:', error));
+                                setTimeout(() => {
+                                    attack.style.opacity = 0;
+                                    attack.style.transform = 'translate(-50%, -50%)'; // Ocultar ataque
+                                    setTimeout(() => {
+                                        canClick = true;
+                                        step = 3;
+                                    }, 500);
+                                }, 1000); // Tiempo para mostrar el ataque
+                            }
+                            break;
+                        case 3:
+                            // Puedes agregar más lógica aquí para la siguiente fase
+                            break;
+                    }
+                }
+            }
+
+            image.addEventListener('click', handleClick);
+            doorsContainer.addEventListener('click', handleClick);
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
